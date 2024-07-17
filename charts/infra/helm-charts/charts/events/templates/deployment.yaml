@@ -1,0 +1,84 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kube-events.fullname" . }}
+  labels:
+    {{- include "kube-events.labels" . | nindent 4 }}
+    {{- with .Values.customLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "kube-events.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kube-events.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      {{- with .Values.tolerations }}
+      tolerations:
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kube-events.serviceAccountName" . }}
+      initContainers:
+        - name: kube-cluster-info
+          image: {{ .Values.image.kube_cluster_info.repository }}:{{ default .Chart.AppVersion .Values.image.kube_cluster_info.tag }}
+          imagePullPolicy: {{ .Values.image.kube_cluster_info.pullPolicy }}
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      containers:
+        - name: kube-state-events
+          image: {{ .Values.image.kube_state_events.repository }}:{{ default .Chart.AppVersion .Values.image.kube_state_events.tag }}
+          imagePullPolicy: {{ .Values.image.kube_state_events.pullPolicy }}
+          args:
+            - -healthz-addr=:5171
+            - -metrics-addr=:9090
+            - -o={{ include "observe.collectionEndpointWithToken" . }}/v1/http/kubernetes/events?clusterUid=$(OBSERVE_CLUSTER)
+            - v1
+            - apps/v1
+            - autoscaling/v1
+            - batch/v1
+            - networking.k8s.io/v1
+          ports:
+            - containerPort: 5171
+            - containerPort: 9090
+              name: http-metrics
+          env:
+            - name: OBSERVE_CLUSTER
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-info
+                  key: id
+          envFrom:
+            - secretRef:
+                name: credentials
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 5171
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 5171
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

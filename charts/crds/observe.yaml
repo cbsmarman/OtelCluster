@@ -1,0 +1,33 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observe
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    namespace: observe
+    name: in-cluster
+  project: default
+  source:
+    path: charts/infra/helm-charts/charts/stack
+    repoURL: https://github.com/cbsmarman/OtelCluster.git
+    targetRevision: HEAD
+    helm:
+      values: |
+        global:
+          observe:
+            collectionEndpoint: $OBSERVE_COLLECTION_ENDPOINT
+        observe:
+          token:
+            create: false
+            value: $OTEL_DEV
+  syncPolicy:
+    automated:
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+  revisionHistoryLimit: 2

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "test-stack"
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: check
+      image: test-client:latest
+      imagePullPolicy: Never
+      args:
+      - check
+      # Queries have the format <JMESPath query> -> <matching regexp>.
+      # This syntax is based on the syntax used in the JMESPath docs, which describe queries as:
+      # search(query, input) -> result
+      - -q="Path -> ^/v1/prometheus$"
+      - -q="Path -> ^/v1/http/kubernetes/logs$"
+      - -q="Path -> ^/v1/http/kubernetes/events$"
+      - http://test-stack-collector.testing.svc.cluster.local:8080/dump

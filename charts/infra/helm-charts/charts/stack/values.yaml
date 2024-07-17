@@ -1,0 +1,20 @@
+observe:
+  token:
+    create: true
+    value: ""
+
+# see the values.yaml files in the subcharts for overrideable values.
+events:
+  enabled: true
+
+metrics:
+  enabled: true
+
+logs:
+  enabled: true
+
+proxy:
+  enabled: false
+
+traces:
+  enabled: false
